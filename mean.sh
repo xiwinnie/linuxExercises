@@ -1,29 +1,41 @@
 #!/bin/bash
 
-# Display the usage statement if no arguments are provided
-if [ "$#" -lt 1 ]; then
-    echo "usage: $0 <column> [file.csv]" >&2
+
+# Function to display usage statement
+usage() {
+    echo "usage: ./mean.sh <column> [file.csv]" >&2
     exit 1
+}
+
+# Check if at least one argument is provided
+if [ "$#" -lt 1 ]; then
+    usage
 fi
 
-# Get the column number and the input file (or stdin)
+# Extract the column number
 column="$1"
-file="${2:-/dev/stdin}"
 
-# Use cut to select the required column, tail to skip the header, and a while read loop to calculate the mean
-cut -d ',' -f "$column" "$file" | tail -n +2 | {
+# Determine the input source: from a file or stdin
+if [ "$#" -eq 2 ]; then
+    file="$2"
+else
+    file="/dev/stdin"
+fi
+
+# Pipeline to compute the mean
+cut -d',' -f"$column" "$file" | tail -n +2 | {
     sum=0
     count=0
-
-    while read -r value; do
-        sum=$((sum + value))
+    while read value; do
+        sum=$(echo "$sum + $value" | bc)
         count=$((count + 1))
     done
+    if [ "$count" -eq 0 ]; then
+        echo "No valid data found."
+        exit 1
+    fi
+    average=$(echo "scale=2; $sum / $count" | bc)
+    echo $average
+}
 
-    # Calculate and echo the mean
-    if [ "$count" -gt 0 ]; then
-        mean=$(bc <<< "scale=2; $sum / $count")
-        echo "Mean: $mean"
-    else
-        echo "No data found" >&2
-    }
+
